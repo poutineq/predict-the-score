@@ -21,8 +21,10 @@ define('OP_VALIDATE',        "Validate Input");
 define('OP_DOIT',            "Submit");
 
 // Global Variables:
-$gMaxScore  = ($_POST['MAXSCORE'] == "") ? DEFAULT_POINTS : $_POST['MAXSCORE'];
-$gNumScores = ($_POST['NUMSCORE'] == "") ? DEFAULT_SCORES : $_POST['NUMSCORE'];
+$gMaxScore  = array_key_exists('MAXSCORE', $_POST) ? $_POST['MAXSCORE'] : DEFAULT_POINTS;
+$gMaxScore = ($gMaxScore == "") ? DEFAULT_POINTS : $gMaxScore;
+$gNumScores = array_key_exists('NUMSCORE', $_POST) ? $_POST['NUMSCORE'] : DEFAULT_SCORES;
+$gNumScores = ($gNumScores == "") ? DEFAULT_SCORES : $gNumScores;
 $gValErrors = 0;
 $gColourArray = createGlobalColourArray();
 
@@ -31,12 +33,14 @@ $gColourArray = createGlobalColourArray();
 // Utilities //
 ///////////////
 
+/**
+ * Debugging function.  Comment out the print statement to turn off debugging.
+ */
 function d($m) {
- /**/  print("DBG[$m]<br>\n");
+ //**/  print("DBG[$m]<br>\n");
 }
 
 //**/d("_POST is [" . print_r($_POST) . "]");
-//**/d("_POST[bgDDLB0] is [" . $_POST[bgDDLB0] . "]");
 //**/d("gNumScores is [" . $gNumScores . "]");
 //**/d("gMaxScore  is [" . $gMaxScore . "]");
 
@@ -71,8 +75,11 @@ function pre($x) {
 ?>
 <form action="<?php echo $_SERVER['PHP_SELF'] ?>" method="POST">
 <?php
-if ( $_POST['submit'] != "" ) {
-  print("You selected [" . $_POST['submit'] . "]<br>\n");
+
+$submit = array_key_exists('submit', $_POST) ? $_POST['submit'] : "";
+
+if ( $submit != "" ) {
+  print("You selected [" . $submit. "]<br>\n");
 }
 
 class Score {
@@ -81,10 +88,13 @@ class Score {
   var $delta; // Absolute value of difference;
 
   // Constructor
-  function Score($us, $them) {
-    $this->us    = $us;
-    $this->them  = $them;
-    $this->delta = abs($us - $them);
+  function __construct($us, $them) {
+    //* */d("Score constructor ". $us . ", " . $them);
+    $this->us    = intval($us);
+    $this->them  = intval($them);
+    //* */d("Score constructor ". $this->us . ", " . $this->them);
+    
+    $this->delta = abs($this->us - $this->them);
   }
 
   function asString() {
@@ -119,7 +129,7 @@ class Evaluation {
   var $deltaUs;         // Test 4
 
   // Constructor
-  function Evaluation($userScore, $testScore) {
+  function __construct($userScore, $testScore) {
     $this->userScore = $userScore;
     $this->testScore = $testScore;
 
@@ -205,7 +215,7 @@ class Prediction
   // Constructors:
 
   // Non-Null Constructor:
-  function Prediction($aId, $aName, $aUs, $aThem, $aBgCol, $aTextCol)
+  function __construct($aId, $aName, $aUs, $aThem, $aBgCol, $aTextCol)
   {
     $this->id      = $aId;
     $this->name    = $aName;
@@ -263,11 +273,11 @@ class Prediction
     return $ret;
   }
 
-  function formString() {
-    //**/d("Prediction::formString()");
+  function fromString() {
+    //**/d("Prediction:fromString()");
 
     global $gColourArray;
-    //**/d("formString(): count($gColourArray) is [" . count($gColourArray) . "]");
+    //**/d(fromString(): count($gColourArray) is [" . count($gColourArray) . "]");
 
     $i = $this->id - 1;
 
@@ -287,7 +297,7 @@ class Prediction
 
     return $rowString;
 
-  } // Prediction::formString()
+  } // Prediction:fromString()
 
 } // class Prediction
 
@@ -297,23 +307,29 @@ function makeRows() {
 function constructPredictions()
 {
   global $gNumScores;
-
+  //**/d("constructPredictions(): gNumScores is [" . $gNumScores . "]");
   $headerRow = tdb("ID") . tdb("Name") . tdb("Score: Us")
     . tdb("Score: Them") . tdb("BG Colour") . tdb("Text Colour");
-  $preductionRows = "";
+  $predictionRows = "";
+  $predictions = [];
 
+  //**/d("constructPredictions(): about to loop through scores, gNumScores is [" . $gNumScores . "]");
   for ( $i = 0; $i < $gNumScores; $i++ ) {
+    //**/d("constructPredictions(): i is [" . $i . "]");
     $id = $i + 1;
-    //**/d("_POST[bgDDLB$i] is [" . $_POST["bgDDLB$i"] << "]");
-    //**/d("_POST[us$i] is [" . $_POST["us$i"] . "]");
-
+    $playerNamei = array_key_exists("playerName$i", $_POST) ? $_POST["playerName$i"] : "";
+    $bgDDLBi = array_key_exists("bgDDLB$i", $_POST) ? $_POST["bgDDLB$i"] : "";
+    $usi = array_key_exists("us$i", $_POST) ? $_POST["us$i"] : "";
+    $themi = array_key_exists("them$i", $_POST) ? $_POST["them$i"] : "";
+    $textDDLBi = array_key_exists("textDDLB$i", $_POST) ? $_POST["textDDLB$i"] : "";
+    
     $prediction = new Prediction($id,
-                 $_POST["playerName$i"],
-                 $_POST["us$i"],
-                 $_POST["them$i"],
-                 $_POST["bgDDLB$i"],
-                 $_POST["textDDLB$i"]);
-    $predictionRows .= tr($prediction->formString());
+                 $playerNamei,
+                 $usi,
+                 $themi,
+                 $bgDDLBi,
+                 $textDDLBi);
+    $predictionRows .= tr($prediction->fromString());
     $predictions[$i] = $prediction;
   }
 
@@ -323,12 +339,13 @@ function constructPredictions()
   return $predictions;
 }
 
-
+$numScore = array_key_exists('NUMSCORE', $_POST) ? $_POST['NUMSCORE'] : DEFAULT_SCORES;
+$maxScore = array_key_exists('MAXSCORE', $_POST) ? $_POST['MAXSCORE'] : DEFAULT_POINTS;
 $controlTable =
   table(tr(td("<INPUT TYPE=SUBMIT NAME=\"submit\" VALUE=\"" . OP_SETNUMSCORES . "\">") .
-       td("<INPUT TYPE=TEXT   NAME=\"NUMSCORE\" value=\"" . $_POST['NUMSCORE'] . "\">")) .
+       td("<INPUT TYPE=TEXT   NAME=\"NUMSCORE\" value=\"" . $numScore . "\">")) .
     tr(td("<INPUT TYPE=SUBMIT NAME=\"submit\" VALUE=\"" . OP_SETMAXSCORE . "\">") .
-       td("<INPUT TYPE=TEXT   NAME=\"MAXSCORE\" value=\"" . $_POST['MAXSCORE'] . "\">")) .
+       td("<INPUT TYPE=TEXT   NAME=\"MAXSCORE\" value=\"" . $maxScore . "\">")) .
     tr(td("<INPUT TYPE=SUBMIT NAME=\"submit\" VALUE=\"" . OP_VALIDATE . "\">")) .
     tr(td("<INPUT TYPE=SUBMIT NAME=\"submit\" VALUE=\"" . OP_DOIT . "\">"))
     );
@@ -350,7 +367,6 @@ function validate() {
   global $gMaxScore;
   global $gValErrors;
 
-  //**/d("ENTER validate()");
   if ( $gNumScores > MAX_SCORES ) {
     print("<h2>The number of scores to include in the contest must be less than or equal to [" . MAX_SCORES
       . "]!  We have [" . $gNumScores
@@ -360,7 +376,7 @@ function validate() {
   }
 
   if ( $gNumScores < 0 ) {
-    print("<h2>The number of scores to include in the contest must be less than or equal to [0"
+    print("<h2>The number of scores to include in the contest must be greater than or equal to [0"
       . "]!  We have [" . $gNumScores
       . "]!\n<br>");
     $gNumScores = DEFAULT_SCORES;
@@ -457,12 +473,12 @@ function createCell($testScore, $predictions) {
     //**/d("createCell(): weDoNotTie");
     $text = getClosest($testScore, $predictions);
   }
-  /*
+  /** 
   d("createCell(): text is [" . $text
     . "], us is [" . $us
     . "], them is [" . $them
     ,"]");
-  */
+   */
   // For now, overwrite with an exact match only.
   /*
   foreach ( $predictions as $predict ) {
@@ -494,9 +510,10 @@ function graphicalDisplay($predictions) {
       //**/d("scoreUs is [" . $scoreUs . "]");
       $curRow = horizRowPrefix($scoreUs);
       for ( $scoreThem = 0; $scoreThem <= $gMaxScore; $scoreThem++ ) {
-    //**/d("scoreThem is [" . $scoreThem . "]");
-    $testScore = new Score($scoreUs, $scoreThem);
-    $curRow .= createCell($testScore, $predictions);
+      //**/d("scoreThem is [" . $scoreThem . "]");
+        $testScore = new Score($scoreUs, $scoreThem);
+        //**/d("testScore is [" . $testScore->asString() . "]");
+        $curRow .= createCell($testScore, $predictions);
       }
       $curRow .= horizRowPrefix($scoreUs);
 
@@ -513,13 +530,13 @@ function doIt() {
 // Begin main()
 
 // Command Loop
-if ( $_POST['submit'] == OP_SETNUMSCORES ) {
+if ( $submit == OP_SETNUMSCORES ) {
   setNumScores();
- } else if ( $_POST['submit'] == OP_SETMAXSCORE ){
+ } else if ( $submit == OP_SETMAXSCORE ){
   setMaxScore();
- } else if ( $_POST['submit'] == OP_VALIDATE ) {
+ } else if ( $submit == OP_VALIDATE ) {
   validate();
- } else if ( $_POST['submit'] == OP_DOIT ) {
+ } else if ( $submit == OP_DOIT ) {
   doIt();
  } else {
   //print("Invalid command received [" . $_POST['submit'] . "]!");

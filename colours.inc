@@ -173,7 +173,8 @@ function getColourDDLB($name, $selected, &$colours) {
     */
   $ret = " <select name=\"" . $name . "\" > ";
 
-  while ( list($htmlCode, $colour) = each($colours) ) {
+  foreach ($colours as $htmlCode => $colour) {
+  // while ( list($htmlCode, $colour) = each($colours) ) {
     $ret .= "<option ";
     if ( $selected == $htmlCode ) {
       $ret .= "selected=\"selected\" ";
