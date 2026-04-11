@@ -28,6 +28,7 @@ Well, it wasn't quite the code here.  When I first uploaded the source to Github
 It should be pretty straightforward.  If it isn't clear, you need to input the number of scores you want to enter, and then enter names or initials and each entrant's predicted score.  You can pick colors for each entry.  This is intended to make the final chart easier to comprehend.  Once you have a chart, you can see which score outcomes correspond to which entrant, and after the game, you can see which entrant is closest to the actual result.
 
 ## Ideas for Improvement
+1. Sanitize user input.
 1. Introduce some kind of memory, perhaps through cookies or storage on the server, so you can go back to a game without having to retype everything in.
 2. The ability to create a game on the server, and allowing entrants to enter their own score.  For whatever it's worth, my thinking is that people can change their score as often as they'd like until the game starts, but should never take a score that's someone else currently has.
 4. Auto-populate the colors for people's predictions.
