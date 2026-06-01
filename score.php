@@ -4,20 +4,22 @@ if (file_exists('colours.inc')) {
     require 'colours.inc';
 } else {
     // Fallback if file is missing to prevent crash
-    function createGlobalColourArray() { return ['#FFFFFF' => 'White', '#000000' => 'Black', '#FF0000' => 'Red']; }
-    function getColourDDLB($name, $selected, $array) { return "<select name='$name'><option value='$selected'>$selected</option></select>"; }
+    function createGlobalColourArray(): array
+    { return ['#FFFFFF' => 'White', '#000000' => 'Black', '#FF0000' => 'Red']; }
+    function getColourDDLB($name, $selected, &$unused): string
+    { return "<select name='$name'><option value='$selected'>$selected</option></select>"; }
 }
 
-define('CELL_WIDTH', 40);
-define('CELL_HEIGHT', 40);
-define('MAX_SCORES', 40);
-define('MAX_POINTS', 77);
-define('DEFAULT_POINTS', 34);
-define('DEFAULT_SCORES', 0);
-define('OP_SETNUMSCORES', "Set Number of Scores to Enter (max 40)");
-define('OP_SETMAXSCORE',  "Set Maximum Score to Compute (max 77)");
-define('OP_VALIDATE',     "Validate Input");
-define('OP_DOIT',         "Submit");
+const CELL_WIDTH = 40;
+const CELL_HEIGHT = 40;
+const MAX_SCORES = 40;
+const MAX_POINTS = 77;
+const DEFAULT_POINTS = 34;
+const DEFAULT_SCORES = 0;
+const OP_SETNUMSCORES = "Set Number of Scores to Enter (max 40)";
+const OP_SETMAXSCORE = "Set Maximum Score to Compute (max 77)";
+const OP_VALIDATE = "Validate Input";
+const OP_DOIT = "Submit";
 define('COOKIE_EXPIRY', time() + 3600 * 24 * 32); // 32 days from now, so more than 1 month
 
 $gFutureLogs = [];
@@ -98,32 +100,40 @@ $gColourArray = createGlobalColourArray();
 // Utilities //
 ///////////////
 
-function table($x) {
+function table($x): string
+{
     return "<table border=\"1\" cellpadding=\"1\" cellspacing=\"1\">$x</table>";
 }
-function td($x) {
+function td($x): string
+{
     return "<td>$x</td>";
 }
-function tdwh($x) {
+function tdwh($x): string
+{
     return "<td align=\"center\" width=\"" . CELL_WIDTH . "\" height=\"" . CELL_HEIGHT . "\">$x</td>";
  }
-function tr($x) {
+function tr($x): string
+{
     return "<tr>$x</tr>";
 }
-function b($x) {
+function b($x): string
+{
     return "<b>$x</b>";
 }
-function u($x) {
+function u($x): string
+{
     return "<u>$x</u>";
 }
-function tdb($x) {
+function tdb($x): string
+{
     return td(b($x));
 }
-function pre($x) {
+function pre($x): string
+{
     return "<pre style='margin:0'>$x</pre>";
 }
 
-$submit = isset($_POST['submit']) ? $_POST['submit'] : "";
+$submit = $_POST['submit'] ?? "";
 $selection = ($submit == "") ? "" : htmlspecialchars($submit);
 
 class Score {
@@ -137,12 +147,19 @@ class Score {
         $this->delta = abs($this->us - $this->them);
     }
 
-    function asString() {
-        return "us is [{$this->us}], them is [{$this->them}], delta is [{$this->delta}]";
+    function asString(): string
+    {
+        return "us is [$this->us], them is [$this->them], delta is [$this->delta]";
     }
-    function weWin() { return $this->us > $this->them; }
-    function weLose() { return $this->us < $this->them; }
-    function weTie() { return $this->us == $this->them; }
+
+    function weWin(): bool
+    { return $this->us > $this->them; }
+
+    function weLose(): bool
+    { return $this->us < $this->them; }
+
+    function weTie(): bool
+    { return $this->us == $this->them; }
 }
 
 class Evaluation {
@@ -174,7 +191,8 @@ class Evaluation {
         $this->deltaUs = abs($userScore->us - $testScore->us);
     }
 
-    function isSameEval($eval) {
+    function isSameEval($eval): bool
+    {
         return $this->correctWinner == $eval->correctWinner &&
                $this->sumDeltas == $eval->sumDeltas &&
                $this->sumDeltaSquares == $eval->sumDeltaSquares &&
@@ -182,7 +200,8 @@ class Evaluation {
                $this->deltaUs == $eval->deltaUs;
     }
 
-    function isCloserThan($eval) {
+    function isCloserThan($eval): bool
+    {
         if ($this->correctWinner && !$eval->correctWinner) return true;
         if (!$this->correctWinner && $eval->correctWinner) return false;
         
@@ -208,15 +227,18 @@ class Prediction {
         $this->score = new Score($aUs, $aThem);
     }
 
-    function exactMatch($score) {
+    function exactMatch($score): bool
+    {
         return $this->us == $score->us && $this->them == $score->them;
     }
 
-    function tdTie() {
+    function tdTie(): string
+    {
         return tdwh("TIE");
     }
 
-    function td($isExact) {
+    function td($isExact): string
+    {
         $myBgCol = $isExact ? $this->textCol : $this->bgCol;
         $myTextCol = $isExact ? $this->bgCol : $this->textCol;
 
@@ -226,7 +248,8 @@ class Prediction {
              . "</font></td>";
     }
 
-    function fromString() {
+    function fromString(): string
+    {
         global $gColourArray;
         $i = $this->id - 1;
         return td($this->id)
@@ -238,7 +261,8 @@ class Prediction {
     }
 }
 
-function constructPredictionFromPost($i) {
+function constructPredictionFromPost($i): Prediction
+{
     $id = $i + 1;
     $name = $_POST["playerName$i"] ?? "";
     $bg = $_POST["bgDDLB$i"] ?? "";
@@ -249,7 +273,8 @@ function constructPredictionFromPost($i) {
     return new Prediction($id, $name, $us, $them, $bg, $txt);
 }
 
-function constructPredictionFromCookie($decodedPrediction, $i) {
+function constructPredictionFromCookie($decodedPrediction, $i): Prediction
+{
     $id = $i + 1;
     $name = $decodedPrediction["name"] ?? "";
     $bg = $decodedPrediction["bgCol"] ?? "";
@@ -260,14 +285,15 @@ function constructPredictionFromCookie($decodedPrediction, $i) {
     return new Prediction($id, $name, $us, $them, $bg, $txt);
 }
 
-function constructPredictions() {
+function constructPredictions(): array
+{
     global $gNumScores, $gEncodedCookiePredictions;
     futureLog("constructPredictions() gNumScores is " . $gNumScores);
     $predictionRows = "";
     $predictions = [];
 
-    $usePost = isset($_POST) && !empty($_POST);
-    futureLog("In constructPredictions(),$gEncodedCookiePredictions is " . (isset($gEncodedCookiePredictions) ? $gEncodedCookiePredictions : "not set"));
+    $usePost = !empty($_POST);
+    futureLog("In constructPredictions(),$gEncodedCookiePredictions is " . ($gEncodedCookiePredictions ?? "not set"));
 
     $decodedCookiePredictions = json_decode($gEncodedCookiePredictions, true);
     $useCookie = !$usePost && is_array($decodedCookiePredictions) && count($decodedCookiePredictions) > 0;
@@ -282,7 +308,8 @@ function constructPredictions() {
     return [$predictionRows, $predictions];
 }
 
-function validate() {
+function validate(): array
+{
     global $gNumScores, $gMaxScore;
     $errors = [];
     if (($gNumScores > MAX_SCORES) || ($gNumScores < 0)) {
@@ -299,18 +326,21 @@ function validate() {
     return $errors;
 }
 
-function horizRowPrefix($count) {
+function horizRowPrefix($count): string
+{
     return tdwh(b(pre($count)));
 }
 
-function finalCountRow() {
+function finalCountRow(): string
+{
     global $gMaxScore;
     $ret = td("");
     for ($i = 0; $i <= $gMaxScore; $i++) { $ret .= tdwh(b(pre($i))); }
     return tr($ret . td(""));
 }
 
-function getClosest($testScore, $predictions) {
+function getClosest($testScore, $predictions): string
+{
     $closestPrediction = new Prediction(0, "-", 0, 0, "#FFFFFF", "black");
    
     $closestEvalSoFar = null;
