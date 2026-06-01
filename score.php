@@ -1,9 +1,3 @@
-<html>
-<head>
-<title>Graphical Representation of Pick the Score</title>
-</head>
-<body>
-
 <?php
 // Note: Ensure 'colours.inc' exists in your directory or comment this out
 if (file_exists('colours.inc')) {
@@ -24,23 +18,85 @@ define('OP_SETNUMSCORES', "Set Number of Scores to Enter (max 40)");
 define('OP_SETMAXSCORE',  "Set Maximum Score to Compute (max 77)");
 define('OP_VALIDATE',     "Validate Input");
 define('OP_DOIT',         "Submit");
+define('COOKIE_EXPIRY', time() + 3600 * 24 * 32); // 32 days from now, so more than 1 month
+
+$gFutureLogs = [];
+
+function futureLog($message) {
+    /*
+    global $gFutureLogs;
+    $gFutureLogs[] = $message;
+    */
+}
+
+function outputFutureLogs() {
+    /*
+    global $gFutureLogs;
+    foreach ($gFutureLogs as $log) {
+        console_log($log);
+    }
+    $gFutureLogs = []; // Clear logs after outputting
+    */
+}
+
+// The debugging functions below can be turned on or off by commenting out the print statements.
+// They are designed to help debug issues with cookies, especially since cookies are set at the
+// end of this script but we want to see their values throughout the script execution.
+function console_log($data) {
+    /*
+    // Convert arrays or objects safely to a JS-readable format
+    $js_code = json_encode($data, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+    echo "<script>console.log(" . $js_code . ");</script>";
+    */
+}
+
+function print_rSomething($header, $something) {
+    /*
+    // The implementation is commented out for production.
+    // 1. Bold and escape the header safely
+    print(b($header) . "<br/>");  
+    // 2. Format the data into a readable string
+    if (is_array($something) || is_object($something)) {
+        // print_r output can contain raw HTML if values contain HTML tags
+        $output = print_r($something, true); 
+    } else {
+        $output = (string)$something;
+    }
+    // 3. Escape the entire output string before putting it in the DOM
+    $escapedOutput = htmlspecialchars($output, ENT_QUOTES, 'UTF-8');
+    // 4. Wrap it in <pre> tags so the print_r formatting is preserved
+    print("<pre>" . $escapedOutput . "</pre><br/>");
+    */
+}
+
+function cookieValueOrDefaultInt($cookieName, $default) {
+    $ret =  (isset($_COOKIE[$cookieName]) && $_COOKIE[$cookieName] !== "") ? intval($_COOKIE[$cookieName]) : $default;
+    futureLog("In cookieValueOrDefaultInt() for [" . $cookieName . "], returning ". $ret);
+    return $ret;
+}
+
+function encodedCookieValueOrDefaultJson($cookieName, $default) {
+    $ret =  (isset($_COOKIE[$cookieName]) && $_COOKIE[$cookieName] !== "") ? json_decode($_COOKIE[$cookieName]) : $default;
+//    futureLog("In encodedCookieValueOrDefaultJson() for [" . $cookieName . "], returning ". json_encode($ret));
+//    if (is_array($ret)) {
+//        futureLog("encodedCookieValueOrDefaultJson() returning array of length " . count($ret));
+//        foreach ($ret as $prediction) {
+//            futureLog("prediction: " . json_encode($prediction));
+//        }
+//    }
+    return json_encode($ret);
+}
 
 // Global Variables
-$gMaxScore = (isset($_POST['MAXSCORE']) && $_POST['MAXSCORE'] !== "") ? intval($_POST['MAXSCORE']) : DEFAULT_POINTS;
-$gNumScores = (isset($_POST['NUMSCORE']) && $_POST['NUMSCORE'] !== "") ? intval($_POST['NUMSCORE']) : DEFAULT_SCORES;
-$gValErrors = 0;
+$gEncodedCookiePredictions = encodedCookieValueOrDefaultJson("predictions", json_encode([]));
+futureLog("gEncodedCookiePredictions after retrieval: " . json_encode($gEncodedCookiePredictions));
+$gMaxScore = (isset($_POST['MAXSCORE']) && $_POST['MAXSCORE'] !== "") ? intval($_POST['MAXSCORE']) : cookieValueOrDefaultInt("gMaxScore", DEFAULT_POINTS);
+$gNumScores = (isset($_POST['NUMSCORE']) && $_POST['NUMSCORE'] !== "") ? intval($_POST['NUMSCORE']) : cookieValueOrDefaultInt("gNumScores", DEFAULT_SCORES);
 $gColourArray = createGlobalColourArray();
 
 ///////////////
 // Utilities //
 ///////////////
-
-/**
- * Debugging function.  Comment out the print statement to turn off debugging.
- */
-function d($m) {
- //   print("DBG[$m]<br>\n");
-}
 
 function table($x) {
     return "<table border=\"1\" cellpadding=\"1\" cellspacing=\"1\">$x</table>";
@@ -66,16 +122,9 @@ function tdb($x) {
 function pre($x) {
     return "<pre style='margin:0'>$x</pre>";
 }
-?>
 
-<form action="<?php echo htmlspecialchars($_SERVER['PHP_SELF']); ?>" method="POST">
-
-<?php
 $submit = isset($_POST['submit']) ? $_POST['submit'] : "";
-
-if ($submit != "") {
-    print("You selected [" . htmlspecialchars($submit) . "]<br>\n");
-}
+$selection = ($submit == "") ? "" : htmlspecialchars($submit);
 
 class Score {
     public $us;
@@ -181,7 +230,7 @@ class Prediction {
         global $gColourArray;
         $i = $this->id - 1;
         return td($this->id)
-             . td("<input type=\"text\" name=\"playerName$i\" value=\"".htmlspecialchars($this->name)."\" size=\"10\"/>")
+             . td("<input type=\"text\" name=\"playerName$i\" value=\"".htmlspecialchars($this->name)."\" size=\"10\" maxlength=\"10\"/>")
              . td("<input type=\"text\" name=\"us$i\" value=\"$this->us\"/>")
              . td("<input type=\"text\" name=\"them$i\" value=\"$this->them\"/>")
              . td(getColourDDLB("bgDDLB$i", $this->bgCol, $gColourArray))
@@ -189,47 +238,65 @@ class Prediction {
     }
 }
 
+function constructPredictionFromPost($i) {
+    $id = $i + 1;
+    $name = $_POST["playerName$i"] ?? "";
+    $bg = $_POST["bgDDLB$i"] ?? "";
+    $us = $_POST["us$i"] ?? 0;
+    $them = $_POST["them$i"] ?? 0;
+    $txt = $_POST["textDDLB$i"] ?? "";
+
+    return new Prediction($id, $name, $us, $them, $bg, $txt);
+}
+
+function constructPredictionFromCookie($decodedPrediction, $i) {
+    $id = $i + 1;
+    $name = $decodedPrediction["name"] ?? "";
+    $bg = $decodedPrediction["bgCol"] ?? "";
+    $us = $decodedPrediction["us"] ?? 0;
+    $them = $decodedPrediction["them"] ?? 0;
+    $txt = $decodedPrediction["textCol"] ?? "";
+
+    return new Prediction($id, $name, $us, $them, $bg, $txt);
+}
+
 function constructPredictions() {
-    global $gNumScores;
-    $headerRow = tdb("ID") . tdb("Name") . tdb("Score: Us")
-        . tdb("Score: Them") . tdb("BG Color") . tdb("Text Color");
+    global $gNumScores, $gEncodedCookiePredictions;
+    futureLog("constructPredictions() gNumScores is " . $gNumScores);
     $predictionRows = "";
     $predictions = [];
 
-    for ($i = 0; $i < $gNumScores; $i++) {
-        $id = $i + 1;
-        $name = $_POST["playerName$i"] ?? "";
-        $bg = $_POST["bgDDLB$i"] ?? "";
-        $us = $_POST["us$i"] ?? 0;
-        $them = $_POST["them$i"] ?? 0;
-        $txt = $_POST["textDDLB$i"] ?? "";
+    $usePost = isset($_POST) && !empty($_POST);
+    futureLog("In constructPredictions(),$gEncodedCookiePredictions is " . (isset($gEncodedCookiePredictions) ? $gEncodedCookiePredictions : "not set"));
 
-        $prediction = new Prediction($id, $name, $us, $them, $bg, $txt);
+    $decodedCookiePredictions = json_decode($gEncodedCookiePredictions, true);
+    $useCookie = !$usePost && is_array($decodedCookiePredictions) && count($decodedCookiePredictions) > 0;
+    futureLog("In constructPredictions(), usePost is " . ($usePost ? "true" : "false"));
+    futureLog("In constructPredictions(), useCookie is " . ($useCookie ? "true" : "false") . ", is_array($gEncodedCookiePredictions) is " . (is_array($decodedCookiePredictions) ? "true" : "false") . ", count(decodedCookiePredictions) is " . (is_array($decodedCookiePredictions) ? count($decodedCookiePredictions) : "N/A"));
+
+    for ($i = 0; $i < $gNumScores; $i++) {
+        $prediction = $useCookie ? constructPredictionFromCookie($decodedCookiePredictions[$i], $i) : constructPredictionFromPost($i);
         $predictionRows .= tr($prediction->fromString());
         $predictions[$i] = $prediction;
     }
-    print(table(tr($headerRow) . $predictionRows));
-    return $predictions;
+    return [$predictionRows, $predictions];
 }
 
 function validate() {
-    global $gNumScores, $gMaxScore, $gValErrors;
+    global $gNumScores, $gMaxScore;
+    $errors = [];
     if (($gNumScores > MAX_SCORES) || ($gNumScores < 0)) {
-            print("<h2>The number of scores to include in the contest must be greater than or equal to 0"
-      . " and less than or equal to " . MAX_SCORES . "!  We have [" . $gNumScores
-      . "]!\n<br>");
-    $gNumScores = DEFAULT_SCORES;
-    $gValErrors++;
+        $errors[] = "<h2>The number of scores to include in the contest must be greater than or equal to 0"
+                . " and less than or equal to " . MAX_SCORES . "!  We have [" . $gNumScores . "]!\n<br>";
+        $gNumScores = DEFAULT_SCORES;
     }
     if (($gMaxScore > MAX_POINTS) || ($gMaxScore < 1)) {
-    print("<h2>The highest point total in this contest must be greater than 0 and less than or equal to [" . MAX_POINTS
-      . "]!  We have [" . $gMaxScore
-      . "]!\n<br>");
-    $gMaxScore = DEFAULT_POINTS;
-    $gValErrors++;
-  }
-
-    return $gValErrors;
+        $errors[] = "<h2>The highest point total in this contest must be greater than 0 and less than or equal to [" . MAX_POINTS
+          . "]!  We have [" . $gMaxScore
+        . "]!\n<br>";
+        $gMaxScore = DEFAULT_POINTS;
+    }
+    return $errors;
 }
 
 function horizRowPrefix($count) {
@@ -294,19 +361,60 @@ function graphicalDisplay($predictions) {
     print(table($allRows) . "\n");
 }
 
+function mySetcookie($name, $value, $expiry = COOKIE_EXPIRY, $path = "/") {
+    setcookie($name, $value, $expiry, $path);
+}
+
 // Control Table
+$errors = validate();
+$prediction_array = constructPredictions();
+$predictionRows = $prediction_array[0];
+$predictions = $prediction_array[1];
+
 $controlTable = table(
     tr(td("<input type='submit' name='submit' value='".OP_SETNUMSCORES."'>") . td("<input type='text' name='NUMSCORE' value='$gNumScores'>")) .
     tr(td("<input type='submit' name='submit' value='".OP_SETMAXSCORE."'>") . td("<input type='text' name='MAXSCORE' value='$gMaxScore'>")) .
     tr(td("<input type='submit' name='submit' value='".OP_VALIDATE."'>")) .
     tr(td("<input type='submit' name='submit' value='".OP_DOIT."'>"))
 );
-print($controlTable);
 
-validate();
-$predictions = constructPredictions();
+// Important: Set cookies before any output is sent to the browser.
+// If you try to set cookies after any HTML output (like echo or print statements), it will cause an error,
+// or at least unexpected functionality.
+mySetcookie("gMaxScore", $gMaxScore);
+mySetcookie("gNumScores", $gNumScores);
+mySetcookie("predictions", json_encode($predictions));
+outputFutureLogs();
+
+
+?>
+<html>
+<head>
+<title>Graphical Representation of Pick the Score</title>
+</head>
+<body>
+<form action="<?php echo htmlspecialchars($_SERVER['PHP_SELF']); ?>" method="POST">
+<?php
+
+//print($selection);
+foreach ($errors as $error) {
+    print($error);
+}
+
+$headerRow = tdb("ID") . tdb("Name") . tdb("Score: Us") . tdb("Score: Them") . tdb("BG Color") . tdb("Text Color");
+
+print($controlTable);
+print(table(tr($headerRow) . $predictionRows));
 graphicalDisplay($predictions);
 
+// More debugging stuff:
+//
+/*
+ print_rSomething("Predictions", json_encode($predictions));
+ print_rSomething("_COOKIE", $_COOKIE);
+ print_rSomething("Current Headers", getallheaders());
+ print_rSomething("Cookie Predictions", $gEncodedCookiePredictions);
+*/
 ?>
 </form>
 </body>

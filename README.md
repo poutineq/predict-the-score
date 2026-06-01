@@ -27,8 +27,14 @@ Well, it wasn't quite the code here.  When I first uploaded the source to Github
 ## Usage
 It should be pretty straightforward.  If it isn't clear, you need to input the number of scores you want to enter, and then enter names or initials and each entrant's predicted score.  You can pick colors for each entry.  This is intended to make the final chart easier to comprehend.  Once you have a chart, you can see which score outcomes correspond to which entrant, and after the game, you can see which entrant is closest to the actual result.
 
+## Notable Changes
+### June 1, 2026: Now with Cookies!
+* State data is now saved locally with cookies, so that if you refresh or return to the page, your entered scores should be there when you return, instead of the page resetting to blank.  Note that there's a 4K limit on cookie size, and it's possible to go past this limit.  If you do, your values won't all be retained.  There will be an item added to "Ideas for Improvement" to address this.
+* A limit on maximum name length (10 characters) has been added.
+
+
 ## Ideas for Improvement
-1. Introduce some kind of memory, perhaps through cookies or storage on the server, so you can go back to a game without having to retype everything in.
+1. Improve the page's memory so that it's not straddled by the 4K cookie size limit and with other liabilities related to cookies.  My first thought is to investigate PHP Sessions.
 2. The ability to create a game on the server, and allowing entrants to enter their own score.  For whatever it's worth, my thinking is that people can change their score as often as they'd like until the game starts, but should never take a score that's someone else currently has.
 4. Auto-populate the colors for people's predictions.
 5. Enter predictions by clicking on the graph, instead of by entering numbers.
