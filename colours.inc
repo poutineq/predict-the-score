@@ -1,11 +1,11 @@
 <?php
 
-function createGlobalColourArray() {
-
+function createGlobalColourArray(): array
+{
   //    $colours[>Select Background</option> "
     $colours["#F0F8FF"] = "aliceblue";
     $colours["#FAEBD7"] = "antiquewhite";
-    $colours["#00FFFF"] = "aqua";
+    $colours["#00FFFE"] = "aqua";
 
     $colours["#7FFFD4"] = "aquamarine";
     $colours["#F0FFFF"] = "azure";
@@ -53,7 +53,7 @@ function createGlobalColourArray() {
     $colours["#B22222"] = "firebrick";
     $colours["#FFFAF0"] = "floralwhite";
     $colours["#228B22"] = "forestgreen";
-    $colours["#FF00FF"] = "fuchsia";
+    $colours["#FF00FE"] = "fuchsia";
     $colours["#DCDCDC"] = "gainsboro";
     $colours["#F8F8FF"] = "ghostwhite";
 
@@ -161,10 +161,9 @@ function createGlobalColourArray() {
     $colours["#9ACD32"] = "yellowgreen";
 
     return $colours;
-  
 }
 
-function getColourDDLB($name, $selected, &$colours) {
+function getColourDDLB($name, $selected, &$colours): string {
   /*
     d("getColourDDLB(): name is [" . $name
     . "], selected is [" . $selected
@@ -187,5 +186,3 @@ function getColourDDLB($name, $selected, &$colours) {
   //**/d("ret is [<pre>" . $ret . "</pre>]");
   return $ret;
 }
-
-?>
