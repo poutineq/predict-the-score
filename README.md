@@ -34,7 +34,7 @@ It should be pretty straightforward.  If it isn't clear, you need to input the n
 
 
 ## Ideas for Improvement
-1. Improve the page's memory so that it's not straddled by the 4K cookie size limit and with other liabilities related to cookies.  My first thought is to investigate PHP Sessions.
+1. Improve the page's memory so that it's not saddled by the 4K cookie size limit and with other liabilities related to cookies.  My first thought is to investigate PHP Sessions.
 2. The ability to create a game on the server, and allowing entrants to enter their own score.  For whatever it's worth, my thinking is that people can change their score as often as they'd like until the game starts, but should never take a score that's someone else currently has.
 4. Auto-populate the colors for people's predictions.
 5. Enter predictions by clicking on the graph, instead of by entering numbers.
