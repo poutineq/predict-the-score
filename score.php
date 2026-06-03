@@ -10,6 +10,18 @@ if (file_exists('colours.inc')) {
     { return "<select name='$name'><option value='$selected'>$selected</option></select>"; }
 }
 
+const SESSION_LIFETIME = 3600 * 24 * 32; // 32 days in seconds
+// Ensure server-side session data persists long enough and the session cookie matches the lifetime
+ini_set('session.gc_maxlifetime', (string)SESSION_LIFETIME);
+session_set_cookie_params([
+    'lifetime' => SESSION_LIFETIME,
+    'path' => '/',
+    'secure' => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off'),
+    'httponly' => true,
+    'samesite' => 'Lax'
+]);
+session_start();
+
 const CELL_WIDTH = 40;
 const CELL_HEIGHT = 40;
 const MAX_SCORES = 40;
@@ -20,10 +32,8 @@ const OP_SETNUMSCORES = "Set Number of Scores to Enter (max 40)";
 const OP_SETMAXSCORE = "Set Maximum Score to Compute (max 77)";
 const OP_VALIDATE = "Validate Input";
 const OP_DOIT = "Submit";
-define('COOKIE_EXPIRY', time() + 3600 * 24 * 32); // 32 days from now, so more than 1 month
 
 $gFutureLogs = [];
-
 function futureLog($message) {
     /*
     global $gFutureLogs;
@@ -42,17 +52,17 @@ function outputFutureLogs() {
 }
 
 // The debugging functions below can be turned on or off by commenting out the print statements.
-// They are designed to help debug issues with cookies, especially since cookies are set at the
-// end of this script but we want to see their values throughout the script execution.
-function console_log($data) {
+// They are designed to help debug issues with cookies/session data, especially since cookies/session data
+// are set at the end of this script but we want to see their values throughout the script execution.
+//function console_log($data) {
     /*
     // Convert arrays or objects safely to a JS-readable format
     $js_code = json_encode($data, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
     echo "<script>console.log(" . $js_code . ");</script>";
     */
-}
+//}
 
-function print_rSomething($header, $something) {
+//function print_rSomething($header, $something) {
     /*
     // The implementation is commented out for production.
     // 1. Bold and escape the header safely
@@ -69,31 +79,28 @@ function print_rSomething($header, $something) {
     // 4. Wrap it in <pre> tags so the print_r formatting is preserved
     print("<pre>" . $escapedOutput . "</pre><br/>");
     */
-}
+//}
 
-function cookieValueOrDefaultInt($cookieName, $default) {
-    $ret =  (isset($_COOKIE[$cookieName]) && $_COOKIE[$cookieName] !== "") ? intval($_COOKIE[$cookieName]) : $default;
-    futureLog("In cookieValueOrDefaultInt() for [" . $cookieName . "], returning ". $ret);
+function sessionValueOrDefaultInt($sessValName, $default) {
+    $ret =  (isset($_SESSION[$sessValName]) && $_SESSION[$sessValName] !== "") ? intval($_SESSION[$sessValName]) : $default;
+    // futureLog("In sessionValueOrDefaultInt() for [" . $cookieName . "] (session), returning ". $ret);
     return $ret;
 }
 
-function encodedCookieValueOrDefaultJson($cookieName, $default) {
-    $ret =  (isset($_COOKIE[$cookieName]) && $_COOKIE[$cookieName] !== "") ? json_decode($_COOKIE[$cookieName]) : $default;
-//    futureLog("In encodedCookieValueOrDefaultJson() for [" . $cookieName . "], returning ". json_encode($ret));
-//    if (is_array($ret)) {
-//        futureLog("encodedCookieValueOrDefaultJson() returning array of length " . count($ret));
-//        foreach ($ret as $prediction) {
-//            futureLog("prediction: " . json_encode($prediction));
-//        }
-//    }
-    return json_encode($ret);
+function encodedSessionValueOrDefaultJson($sessValName, $default) {
+    if (isset($_SESSION[$sessValName]) && $_SESSION[$sessValName] !== "") {
+        $val = $_SESSION[$sessValName];
+        return is_string($val) ? $val : json_encode($val);
+    } else {
+        return $default;
+    }
 }
 
 // Global Variables
-$gEncodedCookiePredictions = encodedCookieValueOrDefaultJson("predictions", json_encode([]));
-futureLog("gEncodedCookiePredictions after retrieval: " . json_encode($gEncodedCookiePredictions));
-$gMaxScore = (isset($_POST['MAXSCORE']) && $_POST['MAXSCORE'] !== "") ? intval($_POST['MAXSCORE']) : cookieValueOrDefaultInt("gMaxScore", DEFAULT_POINTS);
-$gNumScores = (isset($_POST['NUMSCORE']) && $_POST['NUMSCORE'] !== "") ? intval($_POST['NUMSCORE']) : cookieValueOrDefaultInt("gNumScores", DEFAULT_SCORES);
+$gEncodedSessionPredictions = encodedSessionValueOrDefaultJson("predictions", json_encode([]));
+//futureLog("gEncodedSessionPredictions after retrieval: " . json_encode($gEncodedSessionPredictions));
+$gMaxScore = (isset($_POST['MAXSCORE']) && $_POST['MAXSCORE'] !== "") ? intval($_POST['MAXSCORE']) : sessionValueOrDefaultInt("gMaxScore", DEFAULT_POINTS);
+$gNumScores = (isset($_POST['NUMSCORE']) && $_POST['NUMSCORE'] !== "") ? intval($_POST['NUMSCORE']) : sessionValueOrDefaultInt("gNumScores", DEFAULT_SCORES);
 $gColourArray = createGlobalColourArray();
 
 ///////////////
@@ -147,10 +154,10 @@ class Score {
         $this->delta = abs($this->us - $this->them);
     }
 
-    function asString(): string
-    {
-        return "us is [$this->us], them is [$this->them], delta is [$this->delta]";
-    }
+//    function asString(): string
+//    {
+//        return "us is [$this->us], them is [$this->them], delta is [$this->delta]";
+//    }
 
     function weWin(): bool
     { return $this->us > $this->them; }
@@ -232,10 +239,10 @@ class Prediction {
         return $this->us == $score->us && $this->them == $score->them;
     }
 
-    function tdTie(): string
-    {
-        return tdwh("TIE");
-    }
+//    function tdTie(): string
+//    {
+//        return tdwh("TIE");
+//    }
 
     function td($isExact): string
     {
@@ -287,18 +294,18 @@ function constructPredictionFromCookie($decodedPrediction, $i): Prediction
 
 function constructPredictions(): array
 {
-    global $gNumScores, $gEncodedCookiePredictions;
+    global $gNumScores, $gEncodedSessionPredictions;
     futureLog("constructPredictions() gNumScores is " . $gNumScores);
     $predictionRows = "";
     $predictions = [];
 
     $usePost = !empty($_POST);
-    futureLog("In constructPredictions(),$gEncodedCookiePredictions is " . ($gEncodedCookiePredictions ?? "not set"));
+    futureLog("In constructPredictions(),$gEncodedSessionPredictions is " . ($gEncodedSessionPredictions ?? "not set"));
 
-    $decodedCookiePredictions = json_decode($gEncodedCookiePredictions, true);
+    $decodedCookiePredictions = json_decode($gEncodedSessionPredictions, true);
     $useCookie = !$usePost && is_array($decodedCookiePredictions) && count($decodedCookiePredictions) > 0;
     futureLog("In constructPredictions(), usePost is " . ($usePost ? "true" : "false"));
-    futureLog("In constructPredictions(), useCookie is " . ($useCookie ? "true" : "false") . ", is_array($gEncodedCookiePredictions) is " . (is_array($decodedCookiePredictions) ? "true" : "false") . ", count(decodedCookiePredictions) is " . (is_array($decodedCookiePredictions) ? count($decodedCookiePredictions) : "N/A"));
+    futureLog("In constructPredictions(), useCookie is " . ($useCookie ? "true" : "false") . ", is_array($gEncodedSessionPredictions) is " . (is_array($decodedCookiePredictions) ? "true" : "false") . ", count(decodedCookiePredictions) is " . (is_array($decodedCookiePredictions) ? count($decodedCookiePredictions) : "N/A"));
 
     for ($i = 0; $i < $gNumScores; $i++) {
         $prediction = $useCookie ? constructPredictionFromCookie($decodedCookiePredictions[$i], $i) : constructPredictionFromPost($i);
@@ -391,8 +398,9 @@ function graphicalDisplay($predictions) {
     print(table($allRows) . "\n");
 }
 
-function mySetcookie($name, $value, $expiry = COOKIE_EXPIRY, $path = "/") {
-    setcookie($name, $value, $expiry, $path);
+function mySetSessionValue($name, $value) {
+    // Store values in session instead of cookies
+    $_SESSION[$name] = $value;
 }
 
 // Control Table
@@ -411,9 +419,9 @@ $controlTable = table(
 // Important: Set cookies before any output is sent to the browser.
 // If you try to set cookies after any HTML output (like echo or print statements), it will cause an error,
 // or at least unexpected functionality.
-mySetcookie("gMaxScore", $gMaxScore);
-mySetcookie("gNumScores", $gNumScores);
-mySetcookie("predictions", json_encode($predictions));
+mySetSessionValue("gMaxScore", $gMaxScore);
+mySetSessionValue("gNumScores", $gNumScores);
+mySetSessionValue("predictions", json_encode($predictions));
 outputFutureLogs();
 
 
@@ -443,7 +451,7 @@ graphicalDisplay($predictions);
  print_rSomething("Predictions", json_encode($predictions));
  print_rSomething("_COOKIE", $_COOKIE);
  print_rSomething("Current Headers", getallheaders());
- print_rSomething("Cookie Predictions", $gEncodedCookiePredictions);
+ print_rSomething("Cookie Predictions", $gEncodedSessionPredictions);
 */
 ?>
 </form>
