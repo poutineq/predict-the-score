@@ -109,7 +109,7 @@ $gColourArray = createGlobalColourArray();
 
 function table($x): string
 {
-    return "<table border=\"1\" cellpadding=\"1\" cellspacing=\"1\">$x</table>";
+    return "<table class='pts-table'>$x</table>";
 }
 function td($x): string
 {
@@ -117,7 +117,7 @@ function td($x): string
 }
 function tdwh($x): string
 {
-    return "<td align=\"center\" width=\"" . CELL_WIDTH . "\" height=\"" . CELL_HEIGHT . "\">$x</td>";
+    return "<td class='cell-wh'>$x</td>";
  }
 function tr($x): string
 {
@@ -125,11 +125,11 @@ function tr($x): string
 }
 function b($x): string
 {
-    return "<b>$x</b>";
+    return "<strong>$x</strong>";
 }
 function u($x): string
 {
-    return "<u>$x</u>";
+    return "<span class='underline'>$x</span>";
 }
 function tdb($x): string
 {
@@ -249,10 +249,12 @@ class Prediction {
         $myBgCol = $isExact ? $this->textCol : $this->bgCol;
         $myTextCol = $isExact ? $this->bgCol : $this->textCol;
 
-        return "<td align=\"center\" width=\"" . CELL_WIDTH . "\" height=\"" . CELL_HEIGHT . "\" bgcolor=\"" . $myBgCol . "\">"
-             . "<font color=\"" . $myTextCol . "\">"
-             . ($isExact ? "<b>" : "") . htmlspecialchars($this->name) . ($isExact ? "</b>" : "")
-             . "</font></td>";
+        $style = "background-color: " . htmlspecialchars($myBgCol, ENT_QUOTES, 'UTF-8') . ";";
+        $textColor = htmlspecialchars($myTextCol, ENT_QUOTES, 'UTF-8');
+        return "<td class='cell-wh' style='" . $style . "'>"
+             . "<span style='color: " . $textColor . ";'>"
+             . ($isExact ? "<strong>" : "") . htmlspecialchars($this->name) . ($isExact ? "</strong>" : "")
+             . "</span></td>";
     }
 
     function fromString(): string
@@ -426,11 +428,14 @@ outputFutureLogs();
 
 
 ?>
-<html>
+<!doctype html>
+<html lang="en">
 <head>
+<meta charset="utf-8">
 <title>Graphical Representation of Pick the Score</title>
+<link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body class="body" style="--cell-width: <?php echo CELL_WIDTH; ?>px; --cell-height: <?php echo CELL_HEIGHT; ?>px;">
 <form action="<?php echo htmlspecialchars($_SERVER['PHP_SELF']); ?>" method="POST">
 <?php
 
