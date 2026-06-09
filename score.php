@@ -4,9 +4,9 @@ if (file_exists('colours.inc')) {
     require 'colours.inc';
 } else {
     // Fallback if file is missing to prevent crash
-    function createGlobalColourArray(): array
+    function createGlobalColorArray(): array
     { return ['#FFFFFF' => 'White', '#000000' => 'Black', '#FF0000' => 'Red']; }
-    function getColourDDLB($name, $selected, &$unused): string
+    function getColorDDLB($name, $selected, &$unused): string
     { return "<select name='$name'><option value='$selected'>$selected</option></select>"; }
 }
 
@@ -32,6 +32,8 @@ const OP_SETNUMSCORES = "Set Number of Scores to Enter (max 40)";
 const OP_SETMAXSCORE = "Set Maximum Score to Compute (max 77)";
 const OP_VALIDATE = "Validate Input";
 const OP_DOIT = "Submit";
+const CHECK_RANDOMIZECOLORS = "RandomizeColors";
+const LABEL_RANDOMIZE_COLORS = "Randomize Colors";
 
 $gFutureLogs = [];
 function futureLog($message) {
@@ -101,7 +103,12 @@ $gEncodedSessionPredictions = encodedSessionValueOrDefaultJson("predictions", js
 //futureLog("gEncodedSessionPredictions after retrieval: " . json_encode($gEncodedSessionPredictions));
 $gMaxScore = (isset($_POST['MAXSCORE']) && $_POST['MAXSCORE'] !== "") ? intval($_POST['MAXSCORE']) : sessionValueOrDefaultInt("gMaxScore", DEFAULT_POINTS);
 $gNumScores = (isset($_POST['NUMSCORE']) && $_POST['NUMSCORE'] !== "") ? intval($_POST['NUMSCORE']) : sessionValueOrDefaultInt("gNumScores", DEFAULT_SCORES);
-$gColourArray = createGlobalColourArray();
+$gColorArray = createGlobalColorArray();
+$gRandomizeColors = isset($_POST[CHECK_RANDOMIZECOLORS]);
+$randomColors = $gRandomizeColors ? getShuffledColorArray() : array(array(), array());
+$gRandomBackgroundColors = array_keys($randomColors[0]);
+$gRandomTextColors = array_keys($randomColors[1]);
+$oldPost = $_POST;
 
 ///////////////
 // Utilities //
@@ -259,14 +266,23 @@ class Prediction {
 
     function fromString(): string
     {
-        global $gColourArray;
+        global $gColorArray, $gRandomizeColors, $gRandomBackgroundColors, $gRandomTextColors;
+//        print("<br/>Background: ");
+//        foreach($gRandomBackgroundColors as $key => $value) { print("(" . $key . ", " . $value . "), ");}
+//        print("<br/>Text: ");
+//        foreach($gRandomTextColors as $key => $value) { print("(" . $key . ", " . $value . "), ");}
+
         $i = $this->id - 1;
+//        print("<br/>Before: bg: ". $this->bgCol . ", text: " . $this->textCol);
+        $this->bgCol = ($gRandomizeColors && (count($gRandomBackgroundColors) > $i)) ? $gRandomBackgroundColors[$i] : $this->bgCol;
+        $this->textCol = ($gRandomizeColors && (count($gRandomTextColors) > $i)) ? $gRandomTextColors[$i] : $this->textCol;
+//        print("<br/>After: bg: ". $this->bgCol . ", text: " . $this->textCol);
         return td($this->id)
              . td("<input type=\"text\" name=\"playerName$i\" value=\"".htmlspecialchars($this->name)."\" size=\"10\" maxlength=\"10\"/>")
              . td("<input type=\"text\" name=\"us$i\" value=\"$this->us\"/>")
              . td("<input type=\"text\" name=\"them$i\" value=\"$this->them\"/>")
-             . td(getColourDDLB("bgDDLB$i", $this->bgCol, $gColourArray))
-             . td(getColourDDLB("textDDLB$i", $this->textCol, $gColourArray));
+             . td(getColorDDLB("bgDDLB$i", $this->bgCol, $gColorArray))
+             . td(getColorDDLB("textDDLB$i", $this->textCol, $gColorArray));
     }
 }
 
@@ -415,7 +431,8 @@ $controlTable = table(
     tr(td("<input type='submit' name='submit' value='".OP_SETNUMSCORES."'>") . td("<input type='text' name='NUMSCORE' value='$gNumScores'>")) .
     tr(td("<input type='submit' name='submit' value='".OP_SETMAXSCORE."'>") . td("<input type='text' name='MAXSCORE' value='$gMaxScore'>")) .
     tr(td("<input type='submit' name='submit' value='".OP_VALIDATE."'>")) .
-    tr(td("<input type='submit' name='submit' value='".OP_DOIT."'>"))
+    tr(td("<input type='submit' name='submit' value='".OP_DOIT."'>"
+            . "<input type='checkbox' id='" . CHECK_RANDOMIZECOLORS . "' name='" . CHECK_RANDOMIZECOLORS . "' value='1'><label for='" . CHECK_RANDOMIZECOLORS . "'>" . LABEL_RANDOMIZE_COLORS. "</label>"))
 );
 
 // Important: Set cookies before any output is sent to the browser.
@@ -437,9 +454,8 @@ outputFutureLogs();
 </head>
 <body class="body" style="--cell-width: <?php echo CELL_WIDTH; ?>px; --cell-height: <?php echo CELL_HEIGHT; ?>px;">
 <form action="<?php echo htmlspecialchars($_SERVER['PHP_SELF']); ?>" method="POST">
-<?php
 
-//print($selection);
+<?php
 foreach ($errors as $error) {
     print($error);
 }
